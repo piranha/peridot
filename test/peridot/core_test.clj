@@ -1,4 +1,4 @@
-(ns peridot.test.core
+(ns peridot.core-test
   (:require [clojure.test :refer :all]
             [net.cgrand.moustache :as moustache]
             [peridot.core :refer [session request header authorize follow-redirect content-type]]

@@ -1,4 +1,4 @@
-(ns peridot.test.cookie-jar
+(ns peridot.cookie-jar-test
   (:require [clj-time.core :as t]
             [clj-time.format :as tf]
             [clojure.test :refer :all]

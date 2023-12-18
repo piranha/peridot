@@ -1,16 +1,24 @@
+(require '[clojure.edn :as edn])
+
+(def +deps+ (-> "deps.edn" slurp edn/read-string))
+
+(defn deps->vec [deps]
+  (vec (keep (fn [[dep {:keys [:mvn/version exclusions]}]]
+               (when version ;; will skip deps.edn-based deps
+                 (cond-> [dep version]
+                   exclusions (conj :exclusions exclusions))))
+            deps)))
+
+(def dependencies (deps->vec (:deps +deps+)))
+(def dev-dependencies (deps->vec (-> +deps+ :aliases :dev :extra-deps)))
+
 (defproject peridot "0.5.4"
   :description "Interact with ring apps"
   :url "https://github.com/xeqi/peridot"
   :min-lein-version "2.0.0"
   :license {:name "Eclipse Public License"
             :url  "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [;;Use clojure 1.3 for pom generation
-                 [org.clojure/clojure "1.5.1"]
-                 [ring/ring-mock "0.4.0"]
-                 [org.clojure/data.codec "0.1.0"]
-                 [org.apache.httpcomponents/httpmime "4.5.1"
-                  :exclusions [commons-logging]]
-                 [org.apache.httpcomponents/httpcore "4.4.5"]]
+  :dependencies ~dependencies
 
   :release-tasks [["vcs" "assert-committed"]
                   ["change" "version" "leiningen.release/bump-version" "release"]
@@ -24,15 +32,7 @@
   :deploy-repositories [["releases"  {:sign-releases false :url "https://repo.clojars.org"}]
                         ["snapshots" {:sign-releases false :url "https://repo.clojars.org"}]]
 
-  :profiles {:dev {:dependencies   [[net.cgrand/moustache "1.1.0"
-                                     :exclusions
-                                     [org.clojure/clojure
-                                      ring/ring-core]]
-                                    [clj-time "0.12.0"]
-                                    [ring/ring-core "1.5.0"]
-                                    [javax.servlet/servlet-api "2.5"]
-                                    ;; use 1.8 for development
-                                    ^:replace [org.clojure/clojure "1.8.0"]]
+  :profiles {:dev {:dependencies   ~dev-dependencies
                    :resource-paths ["test-resources"]}
              ;; use the relevant clojure version for testing
              :1.5 {:dependencies [^:replace [org.clojure/clojure "1.5.1"]]}

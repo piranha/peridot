@@ -1,4 +1,4 @@
-(ns peridot.test.multipart
+(ns peridot.multipart-test
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer :all]
