@@ -1,5 +1,6 @@
 (ns peridot.test.multipart
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer :all]
             [peridot.core :refer [session request]]
             [peridot.multipart :as multipart]
@@ -8,11 +9,11 @@
 
 (def expected-content-type
   (let [[a b] (map #(Integer. %)
-                   (clojure.string/split (System/getProperty "java.specification.version") #"\."))]
+                   (str/split (System/getProperty "java.specification.version") #"\."))]
     (if (or (<= 9 a)                                        ;; Java 9 and above
             (and (<= 1 a)
                  (<= 8 b)))
-      "text/plain"                                          ; Java 1.8 and above
+      "text/plain; charset=UTF-8"                           ; Java 1.8 and above
       "application/octet-stream")))                         ; Java 1.7 and below
 
 (deftest file-as-param-is-multipart
@@ -70,3 +71,18 @@
       (is (= (slurp tempfile) (slurp file))))
     (is (= (get-in res [:multipart-params "something"])
            "☃"))))
+
+(deftest uploading-a-file-input-stream
+  (let [file (io/file (io/resource "file.txt"))
+        res  (-> (session ok-with-multipart-params)
+                 (request "/"
+                   :request-method :post
+                   :params {:file (io/input-stream file)})
+                 :response)]
+    (let [{:keys [size content-type tempfile]}
+          (get-in res [:multipart-params "file"])]
+      ;; filename is not known when it's an input stream
+      (is (= size 13))
+      ;; input-stream is always binary
+      (is (= content-type "application/octet-stream"))
+      (is (= (slurp tempfile) (slurp file))))))

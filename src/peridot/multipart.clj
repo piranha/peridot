@@ -2,15 +2,13 @@
   (:require [clojure.java.io :as io]
             [ring.util.codec :as codec]
             [ring.util.mime-type :as mime-type])
-  (:import (java.io ByteArrayOutputStream File)
+  (:import (java.io ByteArrayOutputStream File InputStream)
            (java.nio.charset Charset)
            (org.apache.http HttpEntity)
            (org.apache.http.entity ContentType)
-           (org.apache.http.entity.mime MultipartEntityBuilder)
-           (org.apache.http.entity.mime.content StringBody FileBody)))
+           (org.apache.http.entity.mime MultipartEntityBuilder)))
 
-(defn multipart? [params]
-  (some #(instance? File %) (vals params)))
+(def text-plain (ContentType/create "text/plain" (Charset/forName "UTF-8")))
 
 (defn ensure-string [k]
   "Ensures that the resulting key is a form-encoded string. If k is not a
@@ -22,16 +20,18 @@
   (fn [multipartentity key value] (type value)))
 
 (defmethod add-part File [^MultipartEntityBuilder m k ^File f]
-  (.addPart m
-            (ensure-string k)
-            (FileBody. f (ContentType/create
-                           (mime-type/ext-mime-type (.getName f)))
-                       (.getName f))))
+  (let [ctype (-> (mime-type/ext-mime-type (.getName f))
+                  (ContentType/create "UTF-8"))]
+    (.addBinaryBody m (ensure-string k) f ctype (.getName f))))
+
+(defmethod add-part InputStream [^MultipartEntityBuilder m k ^InputStream v]
+  (.addBinaryBody m (ensure-string k) v ContentType/APPLICATION_OCTET_STREAM "input-stream.tmp"))
+
+(defmethod add-part (Class/forName "[B") [^MultipartEntityBuilder m k ^"[B" v]
+  (.addBinaryBody m (ensure-string k) v ContentType/APPLICATION_OCTET_STREAM "byte-array.tmp"))
 
 (defmethod add-part :default [^MultipartEntityBuilder m k v]
-  (.addPart m
-            (ensure-string k)
-            (StringBody. (str v) (Charset/forName "UTF-8"))))
+  (.addTextBody m (ensure-string k) v text-plain))
 
 (defn entity [params]
   (let [b (doto (MultipartEntityBuilder/create)
@@ -52,3 +52,7 @@
      :headers        {"content-type"   (.getValue (.getContentType mpe))
                       "content-length" (str (.getContentLength mpe))}}))
 
+(defn multipart? [params]
+  (let [known  (-> (methods add-part) (dissoc :default) keys)
+        known? (fn [inst] (some #(instance? % inst) known))]
+    (some known? (vals params))))
