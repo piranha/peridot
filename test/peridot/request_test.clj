@@ -1,4 +1,4 @@
-(ns peridot.test.request
+(ns peridot.request-test
   (:require [clojure.test :refer :all]
             [peridot.request :refer [url get-host]]
             [ring.mock.request :as mock]))
